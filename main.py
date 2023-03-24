@@ -10,6 +10,7 @@ from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm
 from flask_gravatar import Gravatar
 from functools import wraps
 import smtplib
+import bleach
 import os
 from dotenv import load_dotenv
 
@@ -18,7 +19,7 @@ MY_EMAIL = os.getenv("MY_EMAIL")
 PASSWORD = os.getenv("PASSWORD")
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 ckeditor = CKEditor(app)
 Bootstrap(app)
 gravatar = Gravatar(app, size=100, rating="g", default="retro", force_default=False, force_lower=False,
@@ -39,6 +40,36 @@ login_manager.init_app(app)
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+
+##SANITIZING HTML
+def strip_invalid_html(content):
+    allowed_tags = ['a', 'abbr', 'acronym', 'address', 'b', 'br', 'div', 'dl', 'dt',
+                    'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'img',
+                    'li', 'ol', 'p', 'pre', 'q', 's', 'small', 'strike',
+                    'span', 'sub', 'sup', 'table', 'tbody', 'td', 'tfoot', 'th',
+                    'thead', 'tr', 'tt', 'u', 'ul']
+    allowed_attrs = {
+        'a': ['href', 'target', 'title'],
+        'img': ['src', 'alt', 'width', 'height'],
+    }
+    cleaned = bleach.clean(content,
+                           tags=allowed_tags,
+                           attributes=allowed_attrs,
+                           strip=True)
+    return cleaned
+
+
+##SEND_MAIL FUNCTION
+def send_mail(name, email, phone, message):
+    with smtplib.SMTP("smtp.gmail.com") as connection:
+        connection.starttls()
+        connection.login(user=MY_EMAIL, password=PASSWORD)
+        email_message = f"Subject:New Message\n\nName: {name}\nEmail: {email}\nPhone: {phone}\nMessage: {message}"
+        connection.sendmail(
+            from_addr=MY_EMAIL,
+            to_addrs=MY_EMAIL,
+            msg=email_message
+        )
 
 ##CONFIGURE TABLES
 class User(UserMixin, db.Model):
@@ -173,16 +204,10 @@ def contact():
     if request.method == "POST":
         data = request.form
         if data["name"] and data["email"] and data["message"] != "":
-            with smtplib.SMTP("smtp.gmail.com") as connection:
-                connection.starttls()
-                connection.login(user=MY_EMAIL, password=PASSWORD)
-                email_message = f"Subject:New Message\n\nName: {data['name']}\nEmail: {data['email']}\n" \
-                                f"Phone: {data['phone']}\nMessage: {data['message']}"
-                connection.sendmail(
-                    from_addr=MY_EMAIL,
-                    to_addrs=MY_EMAIL,
-                    msg=email_message
-                )
+            send_mail(strip_invalid_html(data["name"]),
+                      strip_invalid_html(data["email"]),
+                      strip_invalid_html(data["phone"]),
+                      strip_invalid_html(data["message"]))
         else:
             flash("You can't send a message without filling name, email and message fields.")
             return redirect(url_for("contact", msg_sent=False))

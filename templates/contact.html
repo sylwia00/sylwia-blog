@@ -7,8 +7,12 @@
       <div class="row">
         <div class="col-lg-8 col-md-10 mx-auto">
           <div class="page-heading">
+            {% if msg_sent: %}
+            <h1>Successfully sent your message.</h1>
+            {% else: %}
             <h1>Contact Me</h1>
-            <span class="subheading">Neque porro quisquam est qui dolorem.</span>
+            <span class="subheading">Questions? Write to me.</span>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -19,8 +23,15 @@
   <div class="container">
     <div class="row">
       <div class="col-lg-8 col-md-10 mx-auto">
-        <p>Duis ac ultricies magna, vel hendrerit nunc. Donec pharetra sollicitudin fringilla. Nunc interdum luctus neque.</p>
-        <form name="sentMessage" id="contactForm" novalidate>
+        <p>If you want to ask anything or reach out to me, fill out the form below to send me a message.</p>
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        {% for message in messages %}
+        <p style="color: red:">{{ message }}</p>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+        <form name="sentMessage" id="contactForm" action="{{ url_for('contact') }}" method="post" novalidate>
           <div class="control-group">
             <div class="form-group floating-label-form-group controls">
               <label>Name</label>

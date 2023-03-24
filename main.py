@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, flash, abort
+from flask import Flask, render_template, redirect, request, url_for, flash, abort
 from flask_bootstrap import Bootstrap
 from flask_ckeditor import CKEditor
 from datetime import date
@@ -9,7 +9,13 @@ from flask_login import UserMixin, login_user, LoginManager, login_required, cur
 from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm
 from flask_gravatar import Gravatar
 from functools import wraps
+import smtplib
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+MY_EMAIL = os.getenv("MY_EMAIL")
+PASSWORD = os.getenv("PASSWORD")
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
@@ -19,7 +25,10 @@ gravatar = Gravatar(app, size=100, rating="g", default="retro", force_default=Fa
                     use_ssl=False, base_url=None)
 
 ##CONNECT TO DB
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+uri = os.getenv("DATABASE_URL")
+if uri.startswith("postgres://"):
+    uri = uri.replace("postgres://", "postgresql://", 1)
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(uri, "sqlite:///blog.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 login_manager = LoginManager()
@@ -161,7 +170,24 @@ def about():
 
 @app.route("/contact")
 def contact():
-    return render_template("contact.html", current_user=current_user)
+    if request.method == "POST":
+        data = request.form
+        if data["name"] and data["email"] and data["message"] != "":
+            with smtplib.SMTP("smtp.gmail.com") as connection:
+                connection.starttls()
+                connection.login(user=MY_EMAIL, password=PASSWORD)
+                email_message = f"Subject:New Message\n\nName: {data['name']}\nEmail: {data['email']}\n" \
+                                f"Phone: {data['phone']}\nMessage: {data['message']}"
+                connection.sendmail(
+                    from_addr=MY_EMAIL,
+                    to_addrs=MY_EMAIL,
+                    msg=email_message
+                )
+        else:
+            flash("You can't send a message without filling name, email and message fields.")
+            return redirect(url_for("contact", msg_sent=False))
+        return render_template("contact.html", msg_sent=True)
+    return render_template("contact.html", msg_sent=False)
 
 
 @app.route("/new-post", methods=["GET", "POST"])

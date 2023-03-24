@@ -1,13 +1,15 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField, PasswordField
-from wtforms.validators import DataRequired, URL
+from wtforms import StringField, SubmitField, PasswordField, validators
+from wtforms.validators import DataRequired, URL, Length
 from flask_ckeditor import CKEditorField
 
 
 ##WTForm
 class RegisterForm(FlaskForm):
-    email = StringField("Email", validators=[DataRequired()])
-    password = PasswordField("Password", validators=[DataRequired()])
+    email = StringField("Email", validators=[DataRequired(), validators.Email(message="Invalid email format.")])
+    password = PasswordField("Password", validators=[
+        DataRequired(), Length(min=8, max=20, message="Your password must contain at least 8 characters.")
+    ])
     name = StringField("Name", validators=[DataRequired()])
     submit = SubmitField("Sign Me Up!")
 
@@ -19,7 +21,10 @@ class LoginForm(FlaskForm):
 
 
 class CommentForm(FlaskForm):
-    comment_text = CKEditorField("Comment", validators=[DataRequired()])
+    comment_text = CKEditorField("Comment", validators=[
+        DataRequired(message="You can't post an empty comment."),
+        Length(max=200, message="Max length: 200 characters.")
+    ])
     submit = SubmitField("Submit Comment")
 
 
